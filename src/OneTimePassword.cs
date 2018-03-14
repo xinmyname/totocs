@@ -32,45 +32,44 @@ public class OneTimePassword {
         return HOTP(_sharedSecret, BitConverter.GetBytes(tc));
     }
 
-    private static int HOTP(byte[] k, byte[] c) {
-        return Truncate(HMAC(k, c)) & 0x7FFFFFFF;
+    private static int HOTP(byte[] key, byte[] counter) {
+        return Truncate(HMAC(key, counter)) & 0x7FFFFFFF;
     }
 
-    private static byte[] XOR(byte[] d, byte v) {
-        return d.Select(x => (byte)(x^v)).ToArray();
+    private static byte[] XOR(byte[] data, byte value) {
+        return data.Select(x => (byte)(x^value)).ToArray();
     }
 
-    private static byte[] Concatenate(byte[] a, byte[] b) {
-        return a.Concat(b).ToArray();
+    private static byte[] Concatenate(byte[] data1, byte[] data2) {
+        return data1.Concat(data2).ToArray();
     }
 
-    private static byte[] SHA1(byte[] d) {
+    private static byte[] SHA1(byte[] data) {
         var sha1 = new SHA1Managed();
-        return sha1.ComputeHash(d);
+        return sha1.ComputeHash(data);
     }
 
-    private static byte[] HMAC(byte[] k, byte[] m) {
-        return Concatenate(SHA1(XOR(k, 0x5c)), Concatenate(XOR(k, 0x36), m));
+    private static byte[] HMAC(byte[] key, byte[] message) {
+        return Concatenate(SHA1(XOR(key, 0x5c)), Concatenate(XOR(key, 0x36), message));
     }
 
-    private static int Truncate(byte[] d)
-    {
-        var v = new byte[4];
-        int stride = d.Length / 4;
-        int remnant = d.Length % 4;
+    private static int Truncate(byte[] data) {
+        var result = new byte[4];
+        int stride = data.Length / 4;
+        int remnant = data.Length % 4;
 
-        for (int y = 0; y < 4; y++)
-        {
+        for (int y = 0; y < 4; y++) {
+
             int o = y * stride;
 
             for (int x = 0; x < stride; x++)
-                v[y] ^= d[o + x];
+                result[y] ^= data[o + x];
         }
 
         for (int x = 0; x < remnant; x++)
-            v[x] ^= d[stride*4 + x];
+            result[x] ^= data[stride*4 + x];
 
-        return BitConverter.ToInt32(v, 0);
+        return BitConverter.ToInt32(result, 0);
     }
 
     private static long UnixTime(DateTime date) {
