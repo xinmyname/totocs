@@ -5,31 +5,45 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 
-public class OneTimePassword {
+public struct OneTimePassword {
+    
+    public int Value { get; set; }
+    public long Expires { get; set;}
 
-    private static readonly DateTime Origin = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+    public override string ToString() {
+        DateTime expiry = OneTimePasswordFactory.Origin.AddSeconds(Expires);
+        return $"{Value:000000} - {expiry}";
+    }
+}
+
+public class OneTimePasswordFactory {
+
+    public static readonly DateTime Origin = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
     private readonly byte[] _sharedSecret;
     private readonly int _ttlSeconds;
 
-    public OneTimePassword(byte[] sharedSecret, int ttlSeconds = 30) {
+    public OneTimePasswordFactory(byte[] sharedSecret, int ttlSeconds = 30) {
         _sharedSecret = sharedSecret;
         _ttlSeconds = ttlSeconds;
     }
 
-    public OneTimePassword(string sharedSecret, int ttlSeconds = 30) 
+    public OneTimePasswordFactory(string sharedSecret, int ttlSeconds = 30) 
         : this(Encoding.UTF8.GetBytes(sharedSecret), ttlSeconds) {            
     }
 
-    public int Generate() {
-        return TOTP() % 1000000;
-    }
+    public OneTimePassword Generate() {
 
-    private int TOTP() {
-        long to = UnixEpoch();
+        DateTime now = DateTime.UtcNow;
+        long to = UnixTime(Origin);
         long ti = _ttlSeconds;
-        long tc = (UnixTime(DateTime.UtcNow) - to) / ti;
+        long un = UnixTime(now);
+        long tc = (un - to) / ti;
 
-        return HOTP(_sharedSecret, BitConverter.GetBytes(tc));
+        return new OneTimePassword {
+            Value = HOTP(_sharedSecret, BitConverter.GetBytes(tc)) % 1000000,
+            Expires = (tc + 1) * ti 
+        };
     }
 
     private static int HOTP(byte[] key, byte[] counter) {
@@ -75,9 +89,5 @@ public class OneTimePassword {
     private static long UnixTime(DateTime date) {
         TimeSpan diff = date.ToUniversalTime() - Origin;
         return (long) diff.TotalSeconds;
-    }
-
-    private static long UnixEpoch() {
-        return UnixTime(Origin);
     }
 }
